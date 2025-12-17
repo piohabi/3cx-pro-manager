@@ -1,10 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const axios = require('axios');
-const { authenticateToken } = require('./auth');
 
-router.post('/fetch-info', authenticateToken, async (req, res) => {
-    try {
+router.post('/fetch-info', async (req, res) => {    try {
         const { systemUrl, username, password } = req.body;
         if (!systemUrl || !username || !password) {
             return res.status(400).json({ error: 'Missing credentials' });
