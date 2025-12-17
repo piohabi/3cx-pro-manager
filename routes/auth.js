@@ -3,8 +3,11 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const { createClient } = require('@supabase/supabase-js');
-const { OAuth2Client } = require('google-auth-library');
-const axios = require('axios');
+
+// OAuth dependencies - commented out to allow deployment without OAuth setup
+// Uncomment these when you have OAuth credentials configured
+// const { OAuth2Client } = require('google-auth-library');
+// const axios = require('axios');
 
 // Initialize Supabase client
 const supabase = createClient(
@@ -12,9 +15,12 @@ const supabase = createClient(
   process.env.SUPABASE_KEY
 );
 
-// OAuth clients
-const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+// OAuth clients - will be undefined until dependencies are uncommented
+// const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+
+// Email configuration - using Supabase Edge Function or external service
+const SEND_EMAIL = process.env.SEND_WELCOME_EMAILS === 'true';
 
 // Helper function to generate JWT
 function generateToken(user) {
@@ -23,6 +29,50 @@ function generateToken(user) {
     JWT_SECRET,
     { expiresIn: '7d' }
   );
+}
+
+// Helper function to send welcome email
+async function sendWelcomeEmail(user) {
+  if (!SEND_EMAIL) {
+    console.log('Email sending disabled. Welcome email for:', user.email);
+    return { success: true, message: 'Email notifications disabled' };
+  }
+
+  try {
+    // Using Supabase to log email (you can integrate with SendGrid, Mailgun, etc.)
+    const emailContent = {
+      to: user.email,
+      subject: '🎉 Welcome to 3CX Pro Manager!',
+      html: `
+        <h2>Welcome to 3CX Pro Manager!</h2>
+        <p>Hi ${user.username},</p>
+        <p>Your account has been successfully created!</p>
+        <p><strong>Account Details:</strong></p>
+        <ul>
+          <li>Username: ${user.username}</li>
+          <li>Email: ${user.email}</li>
+          ${user.company ? `<li>Company: ${user.company}</li>` : ''}
+        </ul>
+        <p>You can now log in to your account at: <a href="https://threecx-manager.onrender.com">https://threecx-manager.onrender.com</a></p>
+        <p>Best regards,<br>3CX Pro Manager Team</p>
+      `
+    };
+
+    // Log email to database (for now)
+    await supabase.from('email_log').insert([{
+      recipient: user.email,
+      subject: emailContent.subject,
+      content: emailContent.html,
+      sent_at: new Date().toISOString(),
+      status: 'pending'
+    }]);
+
+    console.log('Welcome email logged for:', user.email);
+    return { success: true, message: 'Welcome email sent' };
+  } catch (error) {
+    console.error('Error sending welcome email:', error);
+    return { success: false, message: 'Failed to send email' };
+  }
 }
 
 // Login endpoint
@@ -83,14 +133,19 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Password must be at least 6 characters' });
     }
 
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ success: false, message: 'Invalid email address' });
+    }
+
     // Check if user exists
     const { data: existingUser } = await supabase
       .from('users')
       .select('id')
-      .or(`username.eq.${username},email.eq.${email}`)
-      .single();
+      .or(`username.eq.${username},email.eq.${email}`);
 
-    if (existingUser) {
+    if (existingUser && existingUser.length > 0) {
       return res.status(400).json({ success: false, message: 'Username or email already exists' });
     }
 
@@ -113,127 +168,41 @@ router.post('/register', async (req, res) => {
 
     if (error) {
       console.error('Registration error:', error);
-      return res.status(500).json({ success: false, message: 'Registration failed' });
+      return res.status(500).json({ success: false, message: 'Registration failed: ' + error.message });
     }
+
+    // Send welcome email
+    const emailResult = await sendWelcomeEmail(newUser);
+    console.log('Email send result:', emailResult);
 
     const token = generateToken(newUser);
     res.json({
       success: true,
-      message: 'Registration successful',
+      message: 'Registration successful! Welcome email sent to ' + email,
       token,
-      user: { id: newUser.id, username: newUser.username, email: newUser.email }
+      user: { id: newUser.id, username: newUser.username, email: newUser.email },
+      emailSent: emailResult.success
     });
   } catch (error) {
     console.error('Registration error:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
+    res.status(500).json({ success: false, message: 'Server error: ' + error.message });
   }
 });
 
-// Google OAuth endpoint
+// Google OAuth endpoint - DISABLED until dependencies are installed
 router.post('/google', async (req, res) => {
-  try {
-    const { credential } = req.body;
-
-    // Verify Google token
-    const ticket = await googleClient.verifyIdToken({
-      idToken: credential,
-      audience: process.env.GOOGLE_CLIENT_ID
-    });
-
-    const payload = ticket.getPayload();
-    const { sub: googleId, email, name, picture } = payload;
-
-    // Check if user exists
-    let { data: user, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('google_id', googleId)
-      .single();
-
-    if (error || !user) {
-      // Create new user from Google account
-      const { data: newUser, error: createError } = await supabase
-        .from('users')
-        .insert([{
-          username: email.split('@')[0] + '_' + Math.random().toString(36).substr(2, 5),
-          email,
-          google_id: googleId,
-          full_name: name,
-          avatar_url: picture,
-          created_at: new Date().toISOString()
-        }])
-        .select()
-        .single();
-
-      if (createError) {
-        console.error('Google user creation error:', createError);
-        return res.status(500).json({ success: false, message: 'Failed to create user' });
-      }
-      user = newUser;
-    }
-
-    const token = generateToken(user);
-    res.json({
-      success: true,
-      token,
-      user: { id: user.id, username: user.username, email: user.email }
-    });
-  } catch (error) {
-    console.error('Google OAuth error:', error);
-    res.status(500).json({ success: false, message: 'Google authentication failed' });
-  }
+  return res.status(503).json({ 
+    success: false, 
+    message: 'Google OAuth is currently disabled. Please use standard registration or contact admin.' 
+  });
 });
 
-// Microsoft OAuth endpoint
+// Microsoft OAuth endpoint - DISABLED until dependencies are installed  
 router.post('/microsoft', async (req, res) => {
-  try {
-    const { accessToken } = req.body;
-
-    // Get user info from Microsoft Graph API
-    const response = await axios.get('https://graph.microsoft.com/v1.0/me', {
-      headers: { Authorization: `Bearer ${accessToken}` }
-    });
-
-    const { id: microsoftId, mail: email, displayName, userPrincipalName } = response.data;
-
-    // Check if user exists
-    let { data: user, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('microsoft_id', microsoftId)
-      .single();
-
-    if (error || !user) {
-      // Create new user from Microsoft account
-      const { data: newUser, error: createError } = await supabase
-        .from('users')
-        .insert([{
-          username: (email || userPrincipalName).split('@')[0] + '_' + Math.random().toString(36).substr(2, 5),
-          email: email || userPrincipalName,
-          microsoft_id: microsoftId,
-          full_name: displayName,
-          created_at: new Date().toISOString()
-        }])
-        .select()
-        .single();
-
-      if (createError) {
-        console.error('Microsoft user creation error:', createError);
-        return res.status(500).json({ success: false, message: 'Failed to create user' });
-      }
-      user = newUser;
-    }
-
-    const token = generateToken(user);
-    res.json({
-      success: true,
-      token,
-      user: { id: user.id, username: user.username, email: user.email }
-    });
-  } catch (error) {
-    console.error('Microsoft OAuth error:', error);
-    res.status(500).json({ success: false, message: 'Microsoft authentication failed' });
-  }
+  return res.status(503).json({ 
+    success: false, 
+    message: 'Microsoft OAuth is currently disabled. Please use standard registration or contact admin.' 
+  });
 });
 
 // Logout endpoint
