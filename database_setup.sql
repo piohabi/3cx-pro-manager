@@ -8,10 +8,26 @@
 DROP TABLE IF EXISTS maintenance CASCADE;
 DROP TABLE IF EXISTS licenses CASCADE;
 DROP TABLE IF EXISTS customers CASCADE;
+DROP TABLE IF EXISTS users CASCADE;
 
 -- ============================================
 -- CREATE TABLES
 -- ============================================
+
+-- Create users table (for authentication)
+CREATE TABLE users (
+  id SERIAL PRIMARY KEY,
+  username VARCHAR(100) NOT NULL UNIQUE,
+  email VARCHAR(255) NOT NULL UNIQUE,
+  password_hash VARCHAR(255),
+  full_name VARCHAR(255),
+  company VARCHAR(255),
+  google_id VARCHAR(255) UNIQUE,
+  microsoft_id VARCHAR(255) UNIQUE,
+  avatar_url TEXT,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
 
 -- Create customers table
 CREATE TABLE customers (
@@ -181,7 +197,7 @@ FROM
 WHERE 
   table_schema = 'public'
   AND table_type = 'BASE TABLE'
-  AND table_name IN ('customers', 'licenses', 'maintenance')
+  AND table_name IN ('customers', 'licenses', 'maintenance, 'users', 'licenses', 'maintenance')
 ORDER BY 
   table_name;
 
