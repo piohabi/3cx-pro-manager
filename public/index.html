@@ -1,30 +1,293 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>3CX Pro Manager</title>
-<style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{font-family:-apple-system,sans-serif;background:#f8fafc;padding:20px}
-.container{max-width:1200px;margin:0 auto;background:white;border-radius:12px;padding:40px;box-shadow:0 2px 8px rgba(0,0,0,0.1)}
-h1{color:#2180a8;margin-bottom:30px}
-.status{padding:20px;background:#e7f7ea;border-left:4px solid #22c55e;border-radius:8px;margin:20px 0}
-.btn{padding:12px 24px;background:#2180a8;color:white;border:none;border-radius:6px;cursor:pointer;margin-top:20px}
-.btn:hover{background:#1a5f7a}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3CX Pro Manager</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+        
+        /* Login Screen */
+        #loginScreen { display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+        .login-card { background: white; padding: 40px; border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); width: 400px; }
+        .login-card h1 { color: #667eea; margin-bottom: 10px; font-size: 32px; }
+        .login-card p { color: #666; margin-bottom: 30px; }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; margin-bottom: 8px; color: #333; font-weight: 500; }
+        .form-group input { width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px; transition: border-color 0.3s; }
+        .form-group input:focus { outline: none; border-color: #667eea; }
+        .btn { width: 100%; padding: 14px; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; }
+        .btn-primary { background: #667eea; color: white; }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 16px rgba(102, 126, 234, 0.3); }
+        .btn-secondary { background: #f5f5f5; color: #333; margin-top: 10px; }
+        .error { background: #fee; border: 1px solid #fcc; color: #c33; padding: 12px; border-radius: 8px; margin-bottom: 20px; display: none; }
+        
+        /* App Screen */
+        #appScreen { display: none; }
+        .header { background: white; padding: 20px 30px; border-radius: 16px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .header h1 { color: #667eea; font-size: 28px; }
+        .user-info { display: flex; align-items: center; gap: 15px; }
+        .user-name { color: #333; font-weight: 500; }
+        .btn-logout { padding: 10px 20px; background: #f44336; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; }
+        
+        .nav-tabs { background: white; padding: 0; border-radius: 12px; margin-bottom: 20px; display: flex; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden; }
+        .nav-tab { flex: 1; padding: 16px; text-align: center; cursor: pointer; font-weight: 600; color: #666; border-bottom: 3px solid transparent; transition: all 0.3s; }
+        .nav-tab:hover { background: #f5f5f5; }
+        .nav-tab.active { color: #667eea; border-bottom-color: #667eea; background: #f8f9ff; }
+        
+        .content { background: white; padding: 30px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        
+        .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
+        .section-header h2 { color: #333; font-size: 24px; }
+        .btn-add { padding: 12px 24px; background: #4CAF50; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; }
+        .btn-add:hover { background: #45a049; }
+        
+        table { width: 100%; border-collapse: collapse; }
+        thead { background: #f8f9ff; }
+        th { padding: 14px; text-align: left; font-weight: 600; color: #667eea; }
+        td { padding: 14px; border-bottom: 1px solid #eee; }
+        tr:hover { background: #f8f9ff; }
+        .btn-sm { padding: 6px 12px; margin: 0 4px; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500; }
+        .btn-edit { background: #2196F3; color: white; }
+        .btn-delete { background: #f44336; color: white; }
+        .btn-view { background: #FF9800; color: white; }
+        .status { padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+        .status-active { background: #e8f5e9; color: #4CAF50; }
+        .status-expired { background: #ffebee; color: #f44336; }
+        
+        /* Modal */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; }
+        .modal-content { background: white; max-width: 600px; margin: 50px auto; padding: 30px; border-radius: 16px; max-height: 90vh; overflow-y: auto; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
+        .modal-header h3 { color: #333; font-size: 22px; }
+        .close { font-size: 28px; cursor: pointer; color: #999; }
+        .close:hover { color: #333; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        textarea { width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-family: inherit; resize: vertical; min-height: 80px; }
+        
+        .loading { text-align: center; padding: 40px; color: #666; }
+        .empty-state { text-align: center; padding: 60px 20px; color: #999; }
+        .empty-state svg { width: 100px; height: 100px; opacity: 0.3; margin-bottom: 20px; }
+    </style>
 </head>
 <body>
-<div class="container">
-<h1>🎉 3CX Pro Manager - Successfully Deployed!</h1>
-<div class="status">
-<h2>✅ Backend API is Running</h2>
-<p>Server: <strong>Active</strong></p>
-<p>Version: <strong>1.0.0</strong></p>
-<p>Environment: <strong>Production</strong></p>
+
+<!-- Login Screen -->
+<div id="loginScreen">
+    <div class="login-card">
+        <h1>🎯 3CX Pro Manager</h1>
+        <p>Professional 3CX Management System</p>
+        <div id="loginError" class="error"></div>
+        <form id="loginForm">
+            <div class="form-group">
+                <label>Username</label>
+                <input type="text" id="loginUsername" value="demo" required>
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" id="loginPassword" value="demo123" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Login</button>
+            <button type="button" class="btn btn-secondary" onclick="showRegister()">Create Account</button>
+        </form>
+    </div>
 </div>
-<button class="btn" onclick="location.href='/api/health'">Check API Health</button>
-<p style="margin-top:30px;color:#718096">ProOffice Digital GmbH - 3CX Management System</p>
+
+<!-- App Screen -->
+<div id="appScreen">
+    <div class="container">
+        <div class="header">
+            <h1>🎯 3CX Pro Manager</h1>
+            <div class="user-info">
+                <span class="user-name" id="currentUser"></span>
+                <button class="btn-logout" onclick="logout()">Logout</button>
+            </div>
+        </div>
+        
+        <div class="nav-tabs">
+            <div class="nav-tab active" onclick="switchTab('customers')">👥 Customers</div>
+            <div class="nav-tab" onclick="switchTab('licenses')">🔑 Licenses</div>
+            <div class="nav-tab" onclick="switchTab('maintenance')">🔧 Maintenance</div>
+        </div>
+        
+        <div class="content">
+            <!-- Customers Tab -->
+            <div id="customersTab" class="tab-content active">
+                <div class="section-header">
+                    <h2>Customers</h2>
+                    <button class="btn-add" onclick="showAddCustomer()">+ Add Customer</button>
+                </div>
+                <div id="customersTable"><div class="loading">Loading customers...</div></div>
+            </div>
+            
+            <!-- Licenses Tab -->
+            <div id="licensesTab" class="tab-content">
+                <div class="section-header">
+                    <h2>Licenses</h2>
+                    <button class="btn-add" onclick="showAddLicense()">+ Add License</button>
+                </div>
+                <div id="licensesTable"><div class="loading">Loading licenses...</div></div>
+            </div>
+            
+            <!-- Maintenance Tab -->
+            <div id="maintenanceTab" class="tab-content">
+                <div class="section-header">
+                    <h2>Maintenance Records</h2>
+                    <button class="btn-add" onclick="showAddMaintenance()">+ Add Maintenance</button>
+                </div>
+                <div id="maintenanceTable"><div class="loading">Loading maintenance...</div></div>
+            </div>
+        </div>
+    </div>
 </div>
+
+<script>
+let currentUser = null;
+const API_URL = '';
+
+// Check if user is logged in
+window.onload = () => {
+    const user = localStorage.getItem('user');
+    if (user) {
+        currentUser = JSON.parse(user);
+        showApp();
+    }
+};
+
+// Login
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const username = document.getElementById('loginUsername').value;
+    const password = document.getElementById('loginPassword').value;
+    
+    // Demo mode - accept any credentials for testing
+    if (username && password) {
+        currentUser = { username };
+        localStorage.setItem('user', JSON.stringify(currentUser));
+        showApp();
+    } else {
+        document.getElementById('loginError').style.display = 'block';
+        document.getElementById('loginError').textContent = 'Invalid credentials';
+    }
+});
+
+function showApp() {
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('appScreen').style.display = 'block';
+    document.getElementById('currentUser').textContent = currentUser.username;
+    loadCustomers();
+}
+
+function logout() {
+    localStorage.removeItem('user');
+    location.reload();
+}
+
+function switchTab(tab) {
+    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    event.target.classList.add('active');
+    document.getElementById(tab + 'Tab').classList.add('active');
+    
+    if (tab === 'customers') loadCustomers();
+    if (tab === 'licenses') loadLicenses();
+    if (tab === 'maintenance') loadMaintenance();
+}
+
+// Load Customers
+async function loadCustomers() {
+    try {
+        const response = await fetch(API_URL + '/api/customers');
+        const data = await response.json();
+        const customers = data.data || [];
+        
+        let html = '<table><thead><tr><th>Company</th><th>Contact</th><th>Email</th><th>Phone</th><th>Actions</th></tr></thead><tbody>';
+        customers.forEach(c => {
+            html += `<tr>
+                <td>${c.company_name}</td>
+                <td>${c.contact_person || '-'}</td>
+                <td>${c.email || '-'}</td>
+                <td>${c.phone || '-'}</td>
+                <td>
+                    <button class="btn-sm btn-edit" onclick="editCustomer(${c.id})">Edit</button>
+                    <button class="btn-sm btn-delete" onclick="deleteCustomer(${c.id})">Delete</button>
+                </td>
+            </tr>`;
+        });
+        html += '</tbody></table>';
+        document.getElementById('customersTable').innerHTML = html;
+    } catch (error) {
+        document.getElementById('customersTable').innerHTML = '<div class="error">Error loading customers</div>';
+    }
+}
+
+async function loadLicenses() {
+    try {
+        const response = await fetch(API_URL + '/api/licenses');
+        const data = await response.json();
+        const licenses = data.data || [];
+        
+        let html = '<table><thead><tr><th>License Key</th><th>Type</th><th>Users</th><th>Expiry</th><th>Status</th><th>Actions</th></tr></thead><tbody>';
+        licenses.forEach(l => {
+            const status = new Date(l.expiry_date) > new Date() ? 'active' : 'expired';
+            html += `<tr>
+                <td>${l.license_key}</td>
+                <td>${l.license_type || '-'}</td>
+                <td>${l.max_users || '-'}</td>
+                <td>${l.expiry_date || '-'}</td>
+                <td><span class="status status-${status}">${status}</span></td>
+                <td>
+                    <button class="btn-sm btn-edit" onclick="editLicense(${l.id})">Edit</button>
+                    <button class="btn-sm btn-delete" onclick="deleteLicense(${l.id})">Delete</button>
+                </td>
+            </tr>`;
+        });
+        html += '</tbody></table>';
+        document.getElementById('licensesTable').innerHTML = html;
+    } catch (error) {
+        document.getElementById('licensesTable').innerHTML = '<div class="error">Error loading licenses</div>';
+    }
+}
+
+async function loadMaintenance() {
+    try {
+        const response = await fetch(API_URL + '/api/maintenance');
+        const data = await response.json();
+        const maintenance = data.data || [];
+        
+        let html = '<table><thead><tr><th>Type</th><th>Description</th><th>Status</th><th>Scheduled</th><th>Actions</th></tr></thead><tbody>';
+        maintenance.forEach(m => {
+            html += `<tr>
+                <td>${m.maintenance_type}</td>
+                <td>${m.description || '-'}</td>
+                <td><span class="status status-${m.status}">${m.status}</span></td>
+                <td>${m.scheduled_date || '-'}</td>
+                <td>
+                    <button class="btn-sm btn-edit" onclick="editMaintenance(${m.id})">Edit</button>
+                    <button class="btn-sm btn-delete" onclick="deleteMaintenance(${m.id})">Delete</button>
+                </td>
+            </tr>`;
+        });
+        html += '</tbody></table>';
+        document.getElementById('maintenanceTable').innerHTML = html;
+    } catch (error) {
+        document.getElementById('maintenanceTable').innerHTML = '<div class="error">Error loading maintenance</div>';
+    }
+}
+
+function showAddCustomer() { alert('Add Customer form - to be implemented'); }
+function editCustomer(id) { alert('Edit Customer ' + id); }
+function deleteCustomer(id) { if(confirm('Delete?')) loadCustomers(); }
+function showAddLicense() { alert('Add License form - to be implemented'); }
+function editLicense(id) { alert('Edit License ' + id); }
+function deleteLicense(id) { if(confirm('Delete?')) loadLicenses(); }
+function showAddMaintenance() { alert('Add Maintenance form - to be implemented'); }
+function editMaintenance(id) { alert('Edit Maintenance ' + id); }
+function deleteMaintenance(id) { if(confirm('Delete?')) loadMaintenance(); }
+</script>
 </body>
 </html>
