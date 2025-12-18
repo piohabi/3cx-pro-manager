@@ -197,8 +197,7 @@ FROM
 WHERE 
   table_schema = 'public'
   AND table_type = 'BASE TABLE'
-  AND table_name IN ('customers', 'licenses', 'maintenance, 'users', 'licenses', 'maintenance')
-ORDER BY 
+    AND table_name IN ('customers', 'licenses', 'maintenance', 'users')ORDER BY 
   table_name;
 
 -- ============================================
