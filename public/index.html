@@ -406,6 +406,8 @@ function handleGoogleResponse(response) {
                 });
                 
                 const data = await response.json();
+                            
+            console.log('Registration response:', data);
                 
                 if (data.success) {
                     // Registration successful - log in the user
